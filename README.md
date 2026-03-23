@@ -11,12 +11,12 @@ go get github.com/gasmod/gas-template
 
 ## Backends
 
-| Backend    | Package                                 | Use case                                                |
-|------------|-----------------------------------------|---------------------------------------------------------|
-| Memory     | `github.com/gasmod/gas-template/memory` | Development, testing, ephemeral storage                 |
-| Filesystem | `github.com/gasmod/gas-template/fs`     | Static templates on disk with runtime overlay           |
-| Database   | `github.com/gasmod/gas-template/db`     | Persistent, multi-instance deployments (Pg/MySQL/SQLite)|
-| Composite  | `github.com/gasmod/gas-template/composite` | Chain multiple providers with fallback reads         |
+| Backend    | Package                                    | Use case                                                 |
+|------------|--------------------------------------------|----------------------------------------------------------|
+| Memory     | `github.com/gasmod/gas-template/memory`    | Development, testing, ephemeral storage                  |
+| Filesystem | `github.com/gasmod/gas-template/fs`        | Static templates on disk with runtime overlay            |
+| Database   | `github.com/gasmod/gas-template/db`        | Persistent, multi-instance deployments (Pg/MySQL/SQLite) |
+| Composite  | `github.com/gasmod/gas-template/composite` | Chain multiple providers with fallback reads             |
 
 Memory, filesystem, and composite stores implement `gas.TemplateProvider`.
 The database store also implements `gas.Service` (with DI, migrations, and lifecycle management).

@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-type Templates struct {
+type GasTemplate struct {
 	ID        int64
 	Namespace string
 	Name      string

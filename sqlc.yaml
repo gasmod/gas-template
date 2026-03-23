@@ -8,7 +8,9 @@ sql:
         package: "pgdb"
         out: "db/postgres"
         sql_package: "database/sql"
-        emit_exact_table_names: true
+        emit_result_struct_pointers: true
+        emit_params_struct_pointers: true
+        emit_pointers_for_null_types: true
 
   - engine: "mysql"
     schema: "db/mysql/schema.sql"
@@ -18,7 +20,9 @@ sql:
         package: "mydb"
         out: "db/mysql"
         sql_package: "database/sql"
-        emit_exact_table_names: true
+        emit_result_struct_pointers: true
+        emit_params_struct_pointers: true
+        emit_pointers_for_null_types: true
 
   - engine: "sqlite"
     schema: "db/sqlite/schema.sql"
@@ -28,4 +32,6 @@ sql:
         package: "litedb"
         out: "db/sqlite"
         sql_package: "database/sql"
-        emit_exact_table_names: true
+        emit_result_struct_pointers: true
+        emit_params_struct_pointers: true
+        emit_pointers_for_null_types: true

@@ -11,7 +11,7 @@ import (
 
 const deleteTemplate = `-- name: DeleteTemplate :execrows
 DELETE
-FROM templates
+FROM __gas_templates
 WHERE namespace = ?
   AND name = ?
 `
@@ -21,7 +21,7 @@ type DeleteTemplateParams struct {
 	Name      string
 }
 
-func (q *Queries) DeleteTemplate(ctx context.Context, arg DeleteTemplateParams) (int64, error) {
+func (q *Queries) DeleteTemplate(ctx context.Context, arg *DeleteTemplateParams) (int64, error) {
 	result, err := q.db.ExecContext(ctx, deleteTemplate, arg.Namespace, arg.Name)
 	if err != nil {
 		return 0, err
@@ -31,7 +31,7 @@ func (q *Queries) DeleteTemplate(ctx context.Context, arg DeleteTemplateParams) 
 
 const getTemplateContent = `-- name: GetTemplateContent :one
 SELECT content
-FROM templates
+FROM __gas_templates
 WHERE namespace = ?
   AND name = ?
 `
@@ -41,7 +41,7 @@ type GetTemplateContentParams struct {
 	Name      string
 }
 
-func (q *Queries) GetTemplateContent(ctx context.Context, arg GetTemplateContentParams) ([]byte, error) {
+func (q *Queries) GetTemplateContent(ctx context.Context, arg *GetTemplateContentParams) ([]byte, error) {
 	row := q.db.QueryRowContext(ctx, getTemplateContent, arg.Namespace, arg.Name)
 	var content []byte
 	err := row.Scan(&content)
@@ -50,7 +50,7 @@ func (q *Queries) GetTemplateContent(ctx context.Context, arg GetTemplateContent
 
 const listTemplates = `-- name: ListTemplates :many
 SELECT name
-FROM templates
+FROM __gas_templates
 WHERE namespace = ?
 ORDER BY name
 `
@@ -79,7 +79,7 @@ func (q *Queries) ListTemplates(ctx context.Context, namespace string) ([]string
 }
 
 const templateExists = `-- name: TemplateExists :one
-SELECT EXISTS (SELECT 1 FROM templates WHERE namespace = ? AND name = ?)
+SELECT EXISTS (SELECT 1 FROM __gas_templates WHERE namespace = ? AND name = ?)
 `
 
 type TemplateExistsParams struct {
@@ -87,7 +87,7 @@ type TemplateExistsParams struct {
 	Name      string
 }
 
-func (q *Queries) TemplateExists(ctx context.Context, arg TemplateExistsParams) (int64, error) {
+func (q *Queries) TemplateExists(ctx context.Context, arg *TemplateExistsParams) (int64, error) {
 	row := q.db.QueryRowContext(ctx, templateExists, arg.Namespace, arg.Name)
 	var column_1 int64
 	err := row.Scan(&column_1)
@@ -95,7 +95,7 @@ func (q *Queries) TemplateExists(ctx context.Context, arg TemplateExistsParams) 
 }
 
 const upsertTemplate = `-- name: UpsertTemplate :exec
-INSERT INTO templates (namespace, name, content, created_at, updated_at)
+INSERT INTO __gas_templates (namespace, name, content, created_at, updated_at)
 VALUES (?, ?, ?, datetime('now'), datetime('now'))
 ON CONFLICT (namespace, name) DO UPDATE SET content    = excluded.content,
                                             updated_at = datetime('now')
@@ -107,7 +107,7 @@ type UpsertTemplateParams struct {
 	Content   []byte
 }
 
-func (q *Queries) UpsertTemplate(ctx context.Context, arg UpsertTemplateParams) error {
+func (q *Queries) UpsertTemplate(ctx context.Context, arg *UpsertTemplateParams) error {
 	_, err := q.db.ExecContext(ctx, upsertTemplate, arg.Namespace, arg.Name, arg.Content)
 	return err
 }

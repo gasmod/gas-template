@@ -33,12 +33,12 @@ import "github.com/gasmod/gas-template/templatetest"
 
 ## Backends
 
-| Backend    | Package              | Service name        | Use case                                          |
-|------------|----------------------|---------------------|---------------------------------------------------|
-| Memory     | `gas-template/memory`| —                   | Development, testing, ephemeral storage            |
-| Filesystem | `gas-template/fs`    | —                   | Static disk templates with runtime overlay         |
-| Database   | `gas-template/db`    | `gas-template-db`   | Persistent, multi-instance (Pg/MySQL/SQLite)       |
-| Composite  | `gas-template/composite` | —              | Chain multiple providers with fallback reads       |
+| Backend    | Package                  | Service name      | Use case                                     |
+|------------|--------------------------|-------------------|----------------------------------------------|
+| Memory     | `gas-template/memory`    | —                 | Development, testing, ephemeral storage      |
+| Filesystem | `gas-template/fs`        | —                 | Static disk templates with runtime overlay   |
+| Database   | `gas-template/db`        | `gas-template-db` | Persistent, multi-instance (Pg/MySQL/SQLite) |
+| Composite  | `gas-template/composite` | —                 | Chain multiple providers with fallback reads |
 
 Memory, filesystem, and composite implement `gas.TemplateProvider`.
 Database implements both `gas.TemplateProvider` and `gas.Service`.
@@ -133,17 +133,17 @@ from the DI container.
 
 ### Supported Drivers
 
-| Driver               | Dialect    |
-|----------------------|------------|
+| Driver              | Dialect    |
+|---------------------|------------|
 | `postgres`, `pgx`   | PostgreSQL |
-| `mysql`              | MySQL      |
-| `sqlite`, `sqlite3`  | SQLite     |
+| `mysql`             | MySQL      |
+| `sqlite`, `sqlite3` | SQLite     |
 
 Unsupported drivers cause `Init` to return an error.
 
 ### Migration
 
-`Init` registers a single migration (version `20260322235959`, "create templates
+`Init` registers a single migration (version `20260322235959`, "create __gas_templates
 table") with the `gas.MigrationManager`. The migration SQL is driver-specific
 and embedded from `.sql` files. The `gas-migrate` service applies it during the
 app startup sequence.
@@ -162,7 +162,7 @@ app startup sequence.
 
 ### Namespaces
 
-Multiple `Store` instances can share one `templates` table by using different
+Multiple `Store` instances can share one `__gas_templates` table by using different
 namespaces. All queries are scoped to `(namespace, name)`.
 
 ```go
@@ -174,7 +174,7 @@ tmpldb.New(tmpldb.WithNamespace("pages"))
 
 ```sql
 -- PostgreSQL
-CREATE TABLE templates (
+CREATE TABLE __gas_templates (
     id         BIGSERIAL PRIMARY KEY,
     namespace  TEXT        NOT NULL,
     name       TEXT        NOT NULL,

@@ -1,4 +1,4 @@
-CREATE TABLE templates
+CREATE TABLE __gas_templates
 (
     id         BIGSERIAL PRIMARY KEY,
     namespace  TEXT        NOT NULL,
@@ -9,4 +9,4 @@ CREATE TABLE templates
     UNIQUE (namespace, name)
 );
 
-CREATE INDEX idx_templates_namespace ON templates (namespace);
+CREATE INDEX idx___gas_templates_namespace ON __gas_templates (namespace);
