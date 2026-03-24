@@ -3,7 +3,7 @@ module github.com/gasmod/gas-template
 go 1.25.6
 
 require (
-	github.com/gasmod/gas v0.2.14
+	github.com/gasmod/gas v0.2.16
 	modernc.org/sqlite v1.47.0
 )
 
