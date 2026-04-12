@@ -91,11 +91,12 @@ Creates an empty in-memory store. Thread-safe via `sync.RWMutex`.
 ### Constructor
 
 ```go
-func NewStore(dir string) *Store
+func NewStore(dir string) func() *Store
 ```
 
-Creates a store rooted at `dir`. Only `.html` files are recognized from disk.
-Implements `io.Closer` — call `Close()` when done.
+Returns a DI-injectable constructor for a store rooted at `dir`. Only `.html`
+files are recognized from disk. The returned `*Store` implements `io.Closer` —
+call `Close()` when done.
 
 ### Behavior
 
@@ -113,11 +114,12 @@ Implements `io.Closer` — call `Close()` when done.
 ### Constructor
 
 ```go
-func NewStore(fsys fs.FS) *Store
+func NewStore(fsys fs.FS) func() *Store
 ```
 
-Creates a read-only template store backed by any `fs.FS` — typically an
-`embed.FS`. Only files with `.html` extension are recognized.
+Returns a DI-injectable constructor for a read-only template store backed by
+any `fs.FS` — typically an `embed.FS`. Only files with `.html` extension are
+recognized.
 
 ### Behavior
 
@@ -134,7 +136,7 @@ Creates a read-only template store backed by any `fs.FS` — typically an
 //go:embed templates/*.html
 var templateFS embed.FS
 
-store := tmplfs.NewStore(templateFS)
+store := tmplfs.NewStore(templateFS)()
 content, err := store.Get(ctx, "templates/home.html")
 ```
 
@@ -143,10 +145,10 @@ content, err := store.Get(ctx, "templates/home.html")
 ### Constructor
 
 ```go
-func New(opts ...Option) func(gas.DatabaseProvider, gas.Logger, gas.MigrationManager) *Store
+func NewStore(opts ...Option) func(gas.DatabaseProvider, gas.Logger, gas.MigrationManager) *Store
 ```
 
-`New` captures options and returns a DI-injectable constructor. The returned
+`NewStore` captures options and returns a DI-injectable constructor. The returned
 func receives `gas.DatabaseProvider`, `gas.Logger`, and `gas.MigrationManager`
 from the DI container.
 
@@ -199,8 +201,8 @@ Multiple `Store` instances can share one `__gas_templates` table by using differ
 namespaces. All queries are scoped to `(namespace, name)`.
 
 ```go
-tmpldb.New(tmpldb.WithNamespace("emails"))
-tmpldb.New(tmpldb.WithNamespace("pages"))
+tmpldb.NewStore(tmpldb.WithNamespace("emails"))
+tmpldb.NewStore(tmpldb.WithNamespace("pages"))
 ```
 
 ### Templates Table Schema
@@ -284,7 +286,7 @@ app := gas.NewApp(
 app := gas.NewApp(
     gas.WithSingletonService[*database.Service](database.New()),
     gas.WithSingletonService[*migrate.Service](migrate.New()),
-    gas.WithSingletonService[*tmpldb.Store](tmpldb.New()),
+    gas.WithSingletonService[*tmpldb.Store](tmpldb.NewStore()),
 )
 ```
 
@@ -295,7 +297,7 @@ app := gas.NewApp(
     gas.WithSingletonService[*database.Service](database.New()),
     gas.WithSingletonService[*migrate.Service](migrate.New()),
     gas.WithSingletonService[*tmpldb.Store](
-        tmpldb.New(tmpldb.WithNamespace("emails")),
+        tmpldb.NewStore(tmpldb.WithNamespace("emails")),
     ),
 )
 ```
@@ -306,7 +308,7 @@ app := gas.NewApp(
 app := gas.NewApp(
     gas.WithSingletonService[*database.Service](database.New()),
     gas.WithSingletonService[*migrate.Service](migrate.New()),
-    gas.WithSingletonService[*tmpldb.Store](tmpldb.New()),
+    gas.WithSingletonService[*tmpldb.Store](tmpldb.NewStore()),
     // After DB store is available, wire the composite:
     gas.WithServiceInstance[gas.TemplateProvider](
         composite.NewStore(dbStore, fsStore),
@@ -348,7 +350,7 @@ changing the service registration — no consumer code changes:
 gas.WithServiceInstance[gas.TemplateProvider](memory.NewStore())
 
 // Production
-gas.WithSingletonService[*tmpldb.Store](tmpldb.New())
+gas.WithSingletonService[*tmpldb.Store](tmpldb.NewStore())
 ```
 
 ### Testing with MockTemplate

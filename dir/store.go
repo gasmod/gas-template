@@ -31,13 +31,16 @@ type Store struct {
 var _ gas.TemplateProvider = (*Store)(nil)
 var _ io.Closer = (*Store)(nil)
 
-// NewStore creates a filesystem-backed template store rooted at dir.
-// Only files with the ".html" extension are recognized from disk.
-func NewStore(dir string) *Store {
-	return &Store{
-		dir:     dir,
-		ext:     ".html",
-		overlay: make(map[string][]byte),
+// NewStore returns a DI-injectable constructor for a filesystem-backed
+// template store rooted at dir. Only files with the ".html" extension are
+// recognized from disk.
+func NewStore(dir string) func() *Store {
+	return func() *Store {
+		return &Store{
+			dir:     dir,
+			ext:     ".html",
+			overlay: make(map[string][]byte),
+		}
 	}
 }
 

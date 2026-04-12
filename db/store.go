@@ -57,8 +57,8 @@ func WithNamespace(ns string) Option {
 	return func(s *Store) { s.namespace = ns }
 }
 
-// New returns a DI-injectable constructor for Store.
-func New(opts ...Option) func(gas.DatabaseProvider, gas.Logger, gas.MigrationManager) *Store {
+// NewStore returns a DI-injectable constructor for Store.
+func NewStore(opts ...Option) func(gas.DatabaseProvider, gas.Logger, gas.MigrationManager) *Store {
 	return func(db gas.DatabaseProvider, logger gas.Logger, mgr gas.MigrationManager) *Store {
 		s := &Store{
 			db:           db,

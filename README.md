@@ -42,7 +42,8 @@ content, err := store.Get(ctx, "emails/welcome.html")
 ```go
 import "github.com/gasmod/gas-template/dir"
 
-store := dir.NewStore("./templates")
+// NewStore returns a DI-injectable constructor; call it to get a *Store.
+store := dir.NewStore("./templates")()
 defer store.Close()
 
 // Reads from disk; overlay takes precedence.
@@ -68,7 +69,8 @@ import (
 //go:embed templates/*.html
 var templateFS embed.FS
 
-store := tmplfs.NewStore(templateFS)
+// NewStore returns a DI-injectable constructor; call it to get a *Store.
+store := tmplfs.NewStore(templateFS)()
 content, err := store.Get(ctx, "templates/home.html")
 ```
 
@@ -88,7 +90,7 @@ func main() {
     app := gas.NewApp(
         gas.WithSingletonService[*database.Service](database.New()),
         gas.WithSingletonService[*migrate.Service](migrate.New()),
-        gas.WithSingletonService[*tmpldb.Store](tmpldb.New()),
+        gas.WithSingletonService[*tmpldb.Store](tmpldb.NewStore()),
         // ...
     )
 
@@ -99,7 +101,7 @@ func main() {
 With a custom namespace:
 
 ```go
-tmpldb.New(tmpldb.WithNamespace("emails"))
+tmpldb.NewStore(tmpldb.WithNamespace("emails"))
 ```
 
 ### Composite backend
@@ -114,7 +116,7 @@ import (
 )
 
 writable := memory.NewStore()
-disk := dir.NewStore("./templates")
+disk := dir.NewStore("./templates")()
 defer disk.Close()
 
 store := composite.NewStore(writable, disk)
@@ -187,7 +189,7 @@ The templates table migration is registered automatically with `gas-migrate` dur
 Multiple `db.Store` instances can share the same table by using different namespaces:
 
 ```go
-gas.WithSingletonService[*tmpldb.Store](tmpldb.New(tmpldb.WithNamespace("emails")))
+gas.WithSingletonService[*tmpldb.Store](tmpldb.NewStore(tmpldb.WithNamespace("emails")))
 ```
 
 The default namespace is `"default"`.

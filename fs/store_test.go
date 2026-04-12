@@ -20,7 +20,7 @@ func newTestFS() fstest.MapFS {
 
 func TestGet(t *testing.T) {
 	t.Parallel()
-	s := NewStore(newTestFS())
+	s := NewStore(newTestFS())()
 
 	got, err := s.Get(context.Background(), "home.html")
 	if err != nil {
@@ -33,7 +33,7 @@ func TestGet(t *testing.T) {
 
 func TestGetNested(t *testing.T) {
 	t.Parallel()
-	s := NewStore(newTestFS())
+	s := NewStore(newTestFS())()
 
 	got, err := s.Get(context.Background(), "layouts/base.html")
 	if err != nil {
@@ -46,7 +46,7 @@ func TestGetNested(t *testing.T) {
 
 func TestGetNotFound(t *testing.T) {
 	t.Parallel()
-	s := NewStore(newTestFS())
+	s := NewStore(newTestFS())()
 
 	_, err := s.Get(context.Background(), "missing.html")
 	if !errors.Is(err, template.ErrTemplateNotFound) {
@@ -56,7 +56,7 @@ func TestGetNotFound(t *testing.T) {
 
 func TestList(t *testing.T) {
 	t.Parallel()
-	s := NewStore(newTestFS())
+	s := NewStore(newTestFS())()
 
 	names, err := s.List(context.Background())
 	if err != nil {
@@ -76,7 +76,7 @@ func TestList(t *testing.T) {
 
 func TestListEmpty(t *testing.T) {
 	t.Parallel()
-	s := NewStore(fstest.MapFS{})
+	s := NewStore(fstest.MapFS{})()
 
 	names, err := s.List(context.Background())
 	if err != nil {
@@ -89,7 +89,7 @@ func TestListEmpty(t *testing.T) {
 
 func TestRegisterIsReadOnly(t *testing.T) {
 	t.Parallel()
-	s := NewStore(newTestFS())
+	s := NewStore(newTestFS())()
 
 	err := s.Register(context.Background(), "new.html", []byte("content"))
 	if !errors.Is(err, template.ErrReadOnly) {
@@ -99,7 +99,7 @@ func TestRegisterIsReadOnly(t *testing.T) {
 
 func TestRegisterFSIsReadOnly(t *testing.T) {
 	t.Parallel()
-	s := NewStore(newTestFS())
+	s := NewStore(newTestFS())()
 
 	err := s.RegisterFS(context.Background(), fstest.MapFS{})
 	if !errors.Is(err, template.ErrReadOnly) {

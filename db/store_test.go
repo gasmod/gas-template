@@ -90,7 +90,7 @@ func openTestDB(t *testing.T, opts ...Option) *Store {
 	}
 
 	mgr := &mockMigrationMgr{}
-	s := New(opts...)(&mockDB{db: db, driver: "sqlite"}, nopLog, mgr)
+	s := NewStore(opts...)(&mockDB{db: db, driver: "sqlite"}, nopLog, mgr)
 	if err := s.Init(); err != nil {
 		t.Fatalf("Init(): %v", err)
 	}
@@ -340,7 +340,7 @@ func TestInitRegistersMigration(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = db.Close() })
 
-	s := New()(&mockDB{db: db, driver: "sqlite"}, nopLog, mgr)
+	s := NewStore()(&mockDB{db: db, driver: "sqlite"}, nopLog, mgr)
 	if err := s.Init(); err != nil {
 		t.Fatalf("Init() error: %v", err)
 	}
@@ -362,7 +362,7 @@ func TestInitRegistersMigration(t *testing.T) {
 
 func TestInitUnsupportedDriver(t *testing.T) {
 	t.Parallel()
-	s := New()(&mockDB{db: nil, driver: "oracle"}, nopLog, nopMigrationMgr)
+	s := NewStore()(&mockDB{db: nil, driver: "oracle"}, nopLog, nopMigrationMgr)
 
 	err := s.Init()
 	if err == nil {
@@ -388,7 +388,7 @@ func TestClose(t *testing.T) {
 
 func TestWithNamespace(t *testing.T) {
 	t.Parallel()
-	s := New(WithNamespace("custom"))(&mockDB{db: nil, driver: "sqlite"}, nopLog, nopMigrationMgr)
+	s := NewStore(WithNamespace("custom"))(&mockDB{db: nil, driver: "sqlite"}, nopLog, nopMigrationMgr)
 	if s.namespace != "custom" {
 		t.Errorf("namespace = %q, want %q", s.namespace, "custom")
 	}
@@ -396,7 +396,7 @@ func TestWithNamespace(t *testing.T) {
 
 func TestDefaultNamespace(t *testing.T) {
 	t.Parallel()
-	s := New()(&mockDB{db: nil, driver: "sqlite"}, nopLog, nopMigrationMgr)
+	s := NewStore()(&mockDB{db: nil, driver: "sqlite"}, nopLog, nopMigrationMgr)
 	if s.namespace != "default" {
 		t.Errorf("namespace = %q, want %q", s.namespace, "default")
 	}
@@ -552,12 +552,12 @@ func TestE2E_NamespaceIsolation(t *testing.T) {
 
 	provider := &mockDB{db: db, driver: "sqlite"}
 
-	nsA := New(WithNamespace("ns-a"))(provider, nopLog, nopMigrationMgr)
+	nsA := NewStore(WithNamespace("ns-a"))(provider, nopLog, nopMigrationMgr)
 	if err := nsA.Init(); err != nil {
 		t.Fatalf("Init(ns-a): %v", err)
 	}
 
-	nsB := New(WithNamespace("ns-b"))(provider, nopLog, nopMigrationMgr)
+	nsB := NewStore(WithNamespace("ns-b"))(provider, nopLog, nopMigrationMgr)
 	if err := nsB.Init(); err != nil {
 		t.Fatalf("Init(ns-b): %v", err)
 	}
@@ -641,7 +641,7 @@ func TestE2E_InitDrivers(t *testing.T) {
 	t.Cleanup(func() { _ = db.Close() })
 
 	// sqlite3 alias should also work.
-	s := New()(&mockDB{db: db, driver: "sqlite3"}, nopLog, nopMigrationMgr)
+	s := NewStore()(&mockDB{db: db, driver: "sqlite3"}, nopLog, nopMigrationMgr)
 	if err := s.Init(); err != nil {
 		t.Fatalf("Init(sqlite3) error: %v", err)
 	}

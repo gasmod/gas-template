@@ -36,7 +36,7 @@ func newTestDir(t *testing.T) string {
 func TestGetFromDisk(t *testing.T) {
 	t.Parallel()
 	dir := newTestDir(t)
-	s := NewStore(dir)
+	s := NewStore(dir)()
 	t.Cleanup(func() { _ = s.Close() })
 
 	got, err := s.Get(context.Background(),"home.html")
@@ -51,7 +51,7 @@ func TestGetFromDisk(t *testing.T) {
 func TestGetFromOverlay(t *testing.T) {
 	t.Parallel()
 	dir := newTestDir(t)
-	s := NewStore(dir)
+	s := NewStore(dir)()
 	t.Cleanup(func() { _ = s.Close() })
 
 	s.Register(context.Background(),"custom.html", []byte("<p>Custom</p>"))
@@ -68,7 +68,7 @@ func TestGetFromOverlay(t *testing.T) {
 func TestOverlayOverridesDisk(t *testing.T) {
 	t.Parallel()
 	dir := newTestDir(t)
-	s := NewStore(dir)
+	s := NewStore(dir)()
 	t.Cleanup(func() { _ = s.Close() })
 
 	s.Register(context.Background(),"home.html", []byte("<h1>Overridden</h1>"))
@@ -85,7 +85,7 @@ func TestOverlayOverridesDisk(t *testing.T) {
 func TestGetNotFound(t *testing.T) {
 	t.Parallel()
 	dir := newTestDir(t)
-	s := NewStore(dir)
+	s := NewStore(dir)()
 	t.Cleanup(func() { _ = s.Close() })
 
 	_, err := s.Get(context.Background(),"nonexistent.html")
@@ -97,7 +97,7 @@ func TestGetNotFound(t *testing.T) {
 func TestListMergesDiskAndOverlay(t *testing.T) {
 	t.Parallel()
 	dir := newTestDir(t)
-	s := NewStore(dir)
+	s := NewStore(dir)()
 	t.Cleanup(func() { _ = s.Close() })
 
 	s.Register(context.Background(),"extra.html", []byte("extra"))
@@ -122,7 +122,7 @@ func TestListMergesDiskAndOverlay(t *testing.T) {
 func TestRegisterFS(t *testing.T) {
 	t.Parallel()
 	dir := newTestDir(t)
-	s := NewStore(dir)
+	s := NewStore(dir)()
 	t.Cleanup(func() { _ = s.Close() })
 
 	fsys := fstest.MapFS{
@@ -145,7 +145,7 @@ func TestRegisterFS(t *testing.T) {
 func TestPathTraversal(t *testing.T) {
 	t.Parallel()
 	dir := newTestDir(t)
-	s := NewStore(dir)
+	s := NewStore(dir)()
 	t.Cleanup(func() { _ = s.Close() })
 
 	_, err := s.Get(context.Background(),"../../../etc/passwd")
@@ -156,7 +156,7 @@ func TestPathTraversal(t *testing.T) {
 
 func TestGetInvalidDir(t *testing.T) {
 	t.Parallel()
-	s := NewStore("/nonexistent/dir/that/does/not/exist")
+	s := NewStore("/nonexistent/dir/that/does/not/exist")()
 	t.Cleanup(func() { _ = s.Close() })
 
 	_, err := s.Get(context.Background(),"page.html")
@@ -167,7 +167,7 @@ func TestGetInvalidDir(t *testing.T) {
 
 func TestListInvalidDir(t *testing.T) {
 	t.Parallel()
-	s := NewStore("/nonexistent/dir/that/does/not/exist")
+	s := NewStore("/nonexistent/dir/that/does/not/exist")()
 	t.Cleanup(func() { _ = s.Close() })
 
 	_, err := s.List(context.Background())
@@ -179,7 +179,7 @@ func TestListInvalidDir(t *testing.T) {
 func TestListOnlyOverlay(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir() // empty directory, no files
-	s := NewStore(dir)
+	s := NewStore(dir)()
 	t.Cleanup(func() { _ = s.Close() })
 
 	s.Register(context.Background(),"overlay.html", []byte("overlay"))
@@ -196,7 +196,7 @@ func TestListOnlyOverlay(t *testing.T) {
 func TestListEmpty(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	s := NewStore(dir)
+	s := NewStore(dir)()
 	t.Cleanup(func() { _ = s.Close() })
 
 	names, err := s.List(context.Background())
@@ -210,7 +210,7 @@ func TestListEmpty(t *testing.T) {
 
 func TestCloseUnopenedStore(t *testing.T) {
 	t.Parallel()
-	s := NewStore(t.TempDir())
+	s := NewStore(t.TempDir())()
 
 	// Close without ever calling Get/List (root never opened).
 	if err := s.Close(); err != nil {
@@ -221,7 +221,7 @@ func TestCloseUnopenedStore(t *testing.T) {
 func TestListDeduplicatesDiskAndOverlay(t *testing.T) {
 	t.Parallel()
 	dir := newTestDir(t)
-	s := NewStore(dir)
+	s := NewStore(dir)()
 	t.Cleanup(func() { _ = s.Close() })
 
 	// Register an overlay with the same name as a disk file.
