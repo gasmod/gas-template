@@ -1,6 +1,7 @@
 package composite
 
 import (
+	"context"
 	"fmt"
 	"io/fs"
 	"sort"
@@ -26,13 +27,13 @@ func NewStore(writable gas.TemplateProvider, readers ...gas.TemplateProvider) *S
 
 // Get tries the writable provider first, then each reader in order.
 // Returns template.ErrTemplateNotFound if no provider has the template.
-func (s *Store) Get(name string) ([]byte, error) {
-	content, err := s.writable.Get(name)
+func (s *Store) Get(ctx context.Context, name string) ([]byte, error) {
+	content, err := s.writable.Get(ctx, name)
 	if err == nil {
 		return content, nil
 	}
 	for _, r := range s.readers {
-		content, err = r.Get(name)
+		content, err = r.Get(ctx, name)
 		if err == nil {
 			return content, nil
 		}
@@ -41,11 +42,11 @@ func (s *Store) Get(name string) ([]byte, error) {
 }
 
 // List merges template names from all providers, deduplicated and sorted.
-func (s *Store) List() ([]string, error) {
+func (s *Store) List(ctx context.Context) ([]string, error) {
 	seen := make(map[string]struct{})
 	var firstErr error
 
-	names, err := s.writable.List()
+	names, err := s.writable.List(ctx)
 	if err != nil {
 		firstErr = err
 	}
@@ -54,7 +55,7 @@ func (s *Store) List() ([]string, error) {
 	}
 
 	for _, r := range s.readers {
-		names, err = r.List()
+		names, err = r.List(ctx)
 		if err != nil && firstErr == nil {
 			firstErr = err
 		}
@@ -76,13 +77,16 @@ func (s *Store) List() ([]string, error) {
 }
 
 // Register delegates to the writable provider.
-func (s *Store) Register(name string, content []byte) {
-	s.writable.Register(name, content)
+func (s *Store) Register(ctx context.Context, name string, content []byte) error {
+	if err := s.writable.Register(ctx, name, content); err != nil {
+		return fmt.Errorf("composite: register: %w", err)
+	}
+	return nil
 }
 
 // RegisterFS delegates to the writable provider.
-func (s *Store) RegisterFS(fsys fs.FS) error {
-	if err := s.writable.RegisterFS(fsys); err != nil {
+func (s *Store) RegisterFS(ctx context.Context, fsys fs.FS) error {
+	if err := s.writable.RegisterFS(ctx, fsys); err != nil {
 		return fmt.Errorf("composite: register fs: %w", err)
 	}
 	return nil

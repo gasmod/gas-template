@@ -119,8 +119,8 @@ func (s *Store) Init() error {
 func (s *Store) Close() error { return nil }
 
 // Get returns the raw template content by name.
-func (s *Store) Get(name string) ([]byte, error) {
-	content, err := s.q.getTemplateContent(context.Background(), s.namespace, name)
+func (s *Store) Get(ctx context.Context, name string) ([]byte, error) {
+	content, err := s.q.getTemplateContent(ctx, s.namespace, name)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, template.ErrTemplateNotFound
 	}
@@ -131,8 +131,8 @@ func (s *Store) Get(name string) ([]byte, error) {
 }
 
 // List returns all available template names in sorted order.
-func (s *Store) List() ([]string, error) {
-	names, err := s.q.listTemplates(context.Background(), s.namespace)
+func (s *Store) List(ctx context.Context) ([]string, error) {
+	names, err := s.q.listTemplates(ctx, s.namespace)
 	if err != nil {
 		return nil, fmt.Errorf("template: list: %w", err)
 	}
@@ -140,21 +140,16 @@ func (s *Store) List() ([]string, error) {
 }
 
 // Register adds or replaces a template by name.
-// The interface contract does not allow returning an error, so failures are logged.
-func (s *Store) Register(name string, content []byte) {
-	err := s.q.upsertTemplate(context.Background(), s.namespace, name, content)
-	if err != nil {
-		s.logger.Error("template: register failed").
-			Str("namespace", s.namespace).
-			Str("name", name).
-			Err("error", err).
-			Send()
+func (s *Store) Register(ctx context.Context, name string, content []byte) error {
+	if err := s.q.upsertTemplate(ctx, s.namespace, name, content); err != nil {
+		return fmt.Errorf("template: register %q: %w", name, err)
 	}
+	return nil
 }
 
 // RegisterFS walks an fs.FS and upserts every .html file found.
-func (s *Store) RegisterFS(fsys fs.FS) error {
-	if err := util.RegisterFS(s, fsys, ".html"); err != nil {
+func (s *Store) RegisterFS(ctx context.Context, fsys fs.FS) error {
+	if err := util.RegisterFS(ctx, s, fsys, ".html"); err != nil {
 		return fmt.Errorf("template: register fs: %w", err)
 	}
 	return nil

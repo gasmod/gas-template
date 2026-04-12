@@ -5,7 +5,7 @@ description: >
   (github.com/gasmod/gas-template) — template storage and retrieval for the Gas
   ecosystem. Use this skill when writing, reviewing, or debugging Go code that
   uses gas-template for storing and retrieving raw template content with
-  in-memory, filesystem, database, or composite backends. Covers the memory, fs,
+  in-memory, directory, database, or composite backends. Covers the memory, dir,
   db, and composite sub-packages, templatetest mock, gas.TemplateProvider
   implementation, sentinel errors, DI wiring, multi-database support
   (PostgreSQL, MySQL, SQLite), namespace isolation, embedded fs.FS registration,
@@ -19,12 +19,13 @@ description: >
 # Gas Template Package Reference
 
 Template storage service for the Gas ecosystem. Provides four
-`gas.TemplateProvider` implementations — in-memory, filesystem, database, and
+`gas.TemplateProvider` implementations — in-memory, directory, database, and
 composite.
 
 ```
 import template "github.com/gasmod/gas-template"
 import "github.com/gasmod/gas-template/memory"
+import "github.com/gasmod/gas-template/dir"
 import tmplfs "github.com/gasmod/gas-template/fs"
 import tmpldb "github.com/gasmod/gas-template/db"
 import "github.com/gasmod/gas-template/composite"
@@ -36,11 +37,12 @@ import "github.com/gasmod/gas-template/templatetest"
 | Backend    | Package                  | Service name      | Use case                                     |
 |------------|--------------------------|-------------------|----------------------------------------------|
 | Memory     | `gas-template/memory`    | —                 | Development, testing, ephemeral storage      |
-| Filesystem | `gas-template/fs`        | —                 | Static disk templates with runtime overlay   |
+| Directory  | `gas-template/dir`       | —                 | Static disk templates with runtime overlay   |
+| FS         | `gas-template/fs`        | —                 | Read-only adapter for `fs.FS` / `embed.FS`   |
 | Database   | `gas-template/db`        | `gas-template-db` | Persistent, multi-instance (Pg/MySQL/SQLite) |
 | Composite  | `gas-template/composite` | —                 | Chain multiple providers with fallback reads |
 
-Memory, filesystem, and composite implement `gas.TemplateProvider`.
+Memory, directory, fs, and composite implement `gas.TemplateProvider`.
 Database implements both `gas.TemplateProvider` and `gas.Service`.
 
 ## TemplateProvider Interface
@@ -49,10 +51,10 @@ Defined in the gas core package:
 
 ```go
 type TemplateProvider interface {
-    Get(name string) ([]byte, error)
-    List() ([]string, error)
-    Register(name string, content []byte)
-    RegisterFS(fsys fs.FS) error
+    Get(ctx context.Context, name string) ([]byte, error)
+    List(ctx context.Context) ([]string, error)
+    Register(ctx context.Context, name string, content []byte) error
+    RegisterFS(ctx context.Context, fsys fs.FS) error
 }
 ```
 
@@ -63,6 +65,7 @@ The root `template` package defines:
 ```go
 template.ErrTemplateNotFound // Get returns this when the template does not exist
 template.IsNotFound(err)     // helper: errors.Is(err, ErrTemplateNotFound)
+template.ErrReadOnly         // Register/RegisterFS return this on read-only providers (fs backend)
 ```
 
 ## Memory Backend
@@ -83,7 +86,7 @@ Creates an empty in-memory store. Thread-safe via `sync.RWMutex`.
 - `RegisterFS` walks the fs.FS and registers all `.html` files. Non-`.html`
   files are skipped.
 
-## Filesystem Backend
+## Directory Backend
 
 ### Constructor
 
@@ -104,6 +107,36 @@ Implements `io.Closer` — call `Close()` when done.
 - **List merges:** `List` returns deduplicated, sorted names from both disk and
   overlay.
 - `Close` releases the `os.Root` handle.
+
+## FS Backend
+
+### Constructor
+
+```go
+func NewStore(fsys fs.FS) *Store
+```
+
+Creates a read-only template store backed by any `fs.FS` — typically an
+`embed.FS`. Only files with `.html` extension are recognized.
+
+### Behavior
+
+- `Get` reads from the underlying `fs.FS`; returns `ErrTemplateNotFound` on
+  read errors.
+- `List` walks the `fs.FS` and returns all `.html` files sorted alphabetically.
+- `Register` and `RegisterFS` always return `template.ErrReadOnly`.
+- For mutability, wrap in a `composite.Store` with a writable provider such
+  as `memory.Store`.
+
+### Example
+
+```go
+//go:embed templates/*.html
+var templateFS embed.FS
+
+store := tmplfs.NewStore(templateFS)
+content, err := store.Get(ctx, "templates/home.html")
+```
 
 ## Database Backend
 
@@ -296,7 +329,7 @@ func New(templates gas.TemplateProvider) *Service {
 }
 
 func (s *Service) Init() error {
-    content, err := s.templates.Get("emails/welcome.html")
+    content, err := s.templates.Get(ctx, "emails/welcome.html")
     if err != nil {
         return err
     }

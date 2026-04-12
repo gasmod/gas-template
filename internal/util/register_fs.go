@@ -1,6 +1,7 @@
 package util //nolint:revive // intentional short name for internal helper
 
 import (
+	"context"
 	"fmt"
 	"io/fs"
 	"path/filepath"
@@ -10,7 +11,7 @@ import (
 
 // RegisterFS recursively registers template files from the provided file system with the specified extension to the TemplateProvider.
 // It reads file contents and registers them using their slash-separated paths. Returns an error if reading or traversal fails.
-func RegisterFS(p gas.TemplateProvider, fsys fs.FS, ext string) error {
+func RegisterFS(ctx context.Context, p gas.TemplateProvider, fsys fs.FS, ext string) error {
 	err := fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -22,7 +23,9 @@ func RegisterFS(p gas.TemplateProvider, fsys fs.FS, ext string) error {
 		if readErr != nil {
 			return fmt.Errorf("reading %s: %w", path, readErr)
 		}
-		p.Register(filepath.ToSlash(path), content)
+		if regErr := p.Register(ctx, filepath.ToSlash(path), content); regErr != nil {
+			return fmt.Errorf("registering %s: %w", path, regErr)
+		}
 		return nil
 	})
 	if err != nil {

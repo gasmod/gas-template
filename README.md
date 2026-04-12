@@ -14,11 +14,12 @@ go get github.com/gasmod/gas-template
 | Backend    | Package                                    | Use case                                                 |
 |------------|--------------------------------------------|----------------------------------------------------------|
 | Memory     | `github.com/gasmod/gas-template/memory`    | Development, testing, ephemeral storage                  |
-| Filesystem | `github.com/gasmod/gas-template/fs`        | Static templates on disk with runtime overlay            |
+| Directory  | `github.com/gasmod/gas-template/dir`       | Static templates on disk with runtime overlay            |
+| FS         | `github.com/gasmod/gas-template/fs`        | Read-only adapter for `fs.FS` (e.g. `embed.FS`)          |
 | Database   | `github.com/gasmod/gas-template/db`        | Persistent, multi-instance deployments (Pg/MySQL/SQLite) |
 | Composite  | `github.com/gasmod/gas-template/composite` | Chain multiple providers with fallback reads             |
 
-Memory, filesystem, and composite stores implement `gas.TemplateProvider`.
+Memory, directory, fs, and composite stores implement `gas.TemplateProvider`.
 The database store also implements `gas.Service` (with DI, migrations, and lifecycle management).
 
 ## Usage
@@ -29,24 +30,46 @@ The database store also implements `gas.Service` (with DI, migrations, and lifec
 import "github.com/gasmod/gas-template/memory"
 
 store := memory.NewStore()
-store.Register("emails/welcome.html", []byte("<h1>Welcome</h1>"))
+if err := store.Register(ctx, "emails/welcome.html", []byte("<h1>Welcome</h1>")); err != nil {
+    // handle error
+}
 
-content, err := store.Get("emails/welcome.html")
+content, err := store.Get(ctx, "emails/welcome.html")
 ```
 
-### Filesystem backend
+### Directory backend
 
 ```go
-import tmplfs "github.com/gasmod/gas-template/fs"
+import "github.com/gasmod/gas-template/dir"
 
-store := tmplfs.NewStore("./templates")
+store := dir.NewStore("./templates")
 defer store.Close()
 
 // Reads from disk; overlay takes precedence.
-content, err := store.Get("home.html")
+content, err := store.Get(ctx, "home.html")
 
 // Programmatic additions go to the in-memory overlay.
-store.Register("dynamic.html", []byte("<p>Dynamic</p>"))
+_ = store.Register(ctx, "dynamic.html", []byte("<p>Dynamic</p>"))
+```
+
+### FS backend
+
+Read-only adapter for any `fs.FS` — most commonly an `embed.FS`. `Register`
+and `RegisterFS` return `template.ErrReadOnly`; wrap in a composite store
+with a writable provider for mutability.
+
+```go
+import (
+    "embed"
+
+    tmplfs "github.com/gasmod/gas-template/fs"
+)
+
+//go:embed templates/*.html
+var templateFS embed.FS
+
+store := tmplfs.NewStore(templateFS)
+content, err := store.Get(ctx, "templates/home.html")
 ```
 
 ### Database backend
@@ -87,20 +110,20 @@ Chain multiple providers — writes go to the first, reads fall back through all
 import (
     "github.com/gasmod/gas-template/composite"
     "github.com/gasmod/gas-template/memory"
-    tmplfs "github.com/gasmod/gas-template/fs"
+    "github.com/gasmod/gas-template/dir"
 )
 
 writable := memory.NewStore()
-disk := tmplfs.NewStore("./templates")
+disk := dir.NewStore("./templates")
 defer disk.Close()
 
 store := composite.NewStore(writable, disk)
 
 // Get checks writable first, then disk.
-content, err := store.Get("page.html")
+content, err := store.Get(ctx, "page.html")
 
 // Register goes to the writable provider only.
-store.Register("override.html", []byte("<p>Override</p>"))
+_ = store.Register(ctx, "override.html", []byte("<p>Override</p>"))
 ```
 
 ### Dependency injection
@@ -117,7 +140,7 @@ func New(templates gas.TemplateProvider) *Service {
 }
 
 func (s *Service) Init() error {
-    content, err := s.templates.Get("emails/welcome.html")
+    content, err := s.templates.Get(context.Background(), "emails/welcome.html")
     if err != nil {
         return err
     }
@@ -128,7 +151,8 @@ func (s *Service) Init() error {
 
 ### Registering templates from embedded files
 
-All stores support registering templates from an `fs.FS`:
+All writable stores (memory, dir, db) support loading templates from an
+`fs.FS` via `RegisterFS`:
 
 ```go
 import "embed"
@@ -136,10 +160,14 @@ import "embed"
 //go:embed templates/*.html
 var templateFS embed.FS
 
-store.RegisterFS(templateFS)
+if err := store.RegisterFS(ctx, templateFS); err != nil {
+    // handle error
+}
 ```
 
-Only `.html` files are registered; other extensions are skipped.
+Only `.html` files are registered; other extensions are skipped. For a
+read-only view over an `fs.FS` without copying contents into another
+store, use the `fs` backend instead.
 
 ## Database Backends
 
@@ -181,7 +209,7 @@ The `templatetest` package provides a mock implementation of `gas.TemplateProvid
 import "github.com/gasmod/gas-template/templatetest"
 
 mock := &templatetest.MockTemplate{}
-mock.GetFn = func(name string) ([]byte, error) {
+mock.GetFn = func(ctx context.Context, name string) ([]byte, error) {
     return []byte("<h1>Hello</h1>"), nil
 }
 

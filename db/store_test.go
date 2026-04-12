@@ -149,7 +149,7 @@ func TestGetReturnsContent(t *testing.T) {
 		},
 	})
 
-	got, err := s.Get("page.html")
+	got, err := s.Get(context.Background(),"page.html")
 	if err != nil {
 		t.Fatalf("Get() error: %v", err)
 	}
@@ -166,7 +166,7 @@ func TestGetNotFoundReturnsSentinel(t *testing.T) {
 		},
 	})
 
-	_, err := s.Get("missing.html")
+	_, err := s.Get(context.Background(),"missing.html")
 	if !errors.Is(err, template.ErrTemplateNotFound) {
 		t.Errorf("Get() error = %v, want %v", err, template.ErrTemplateNotFound)
 	}
@@ -181,7 +181,7 @@ func TestGetWrapsDBError(t *testing.T) {
 		},
 	})
 
-	_, err := s.Get("page.html")
+	_, err := s.Get(context.Background(),"page.html")
 	if err == nil {
 		t.Fatal("Get() expected error, got nil")
 	}
@@ -201,7 +201,7 @@ func TestListReturnsNames(t *testing.T) {
 		},
 	})
 
-	names, err := s.List()
+	names, err := s.List(context.Background())
 	if err != nil {
 		t.Fatalf("List() error: %v", err)
 	}
@@ -219,7 +219,7 @@ func TestListWrapsDBError(t *testing.T) {
 		},
 	})
 
-	_, err := s.List()
+	_, err := s.List(context.Background())
 	if !errors.Is(err, dbErr) {
 		t.Errorf("List() error should wrap underlying error; got %v", err)
 	}
@@ -316,17 +316,19 @@ func TestDeleteWrapsDBError(t *testing.T) {
 	}
 }
 
-func TestRegisterLogsErrorOnFailure(t *testing.T) {
+func TestRegisterWrapsDBError(t *testing.T) {
 	t.Parallel()
+	dbErr := errors.New("write failed")
 	s := newStubStore(&stubQuerier{
 		upsertTemplateFn: func(_ context.Context, _, _ string, _ []byte) error {
-			return errors.New("write failed")
+			return dbErr
 		},
 	})
 
-	// Register does not return an error (interface constraint).
-	// Just ensure it doesn't panic.
-	s.Register("page.html", []byte("content"))
+	err := s.Register(context.Background(), "page.html", []byte("content"))
+	if !errors.Is(err, dbErr) {
+		t.Errorf("Register() error should wrap underlying error; got %v", err)
+	}
 }
 
 func TestInitRegistersMigration(t *testing.T) {
@@ -408,9 +410,9 @@ func TestE2E_RegisterAndGet(t *testing.T) {
 	t.Parallel()
 	s := openTestDB(t)
 
-	s.Register("emails/welcome.html", []byte("<h1>Welcome</h1>"))
+	s.Register(context.Background(),"emails/welcome.html", []byte("<h1>Welcome</h1>"))
 
-	got, err := s.Get("emails/welcome.html")
+	got, err := s.Get(context.Background(),"emails/welcome.html")
 	if err != nil {
 		t.Fatalf("Get() error: %v", err)
 	}
@@ -423,7 +425,7 @@ func TestE2E_GetNotFound(t *testing.T) {
 	t.Parallel()
 	s := openTestDB(t)
 
-	_, err := s.Get("nonexistent")
+	_, err := s.Get(context.Background(),"nonexistent")
 	if !errors.Is(err, template.ErrTemplateNotFound) {
 		t.Errorf("Get() error = %v, want %v", err, template.ErrTemplateNotFound)
 	}
@@ -433,10 +435,10 @@ func TestE2E_RegisterOverwrite(t *testing.T) {
 	t.Parallel()
 	s := openTestDB(t)
 
-	s.Register("page.html", []byte("v1"))
-	s.Register("page.html", []byte("v2"))
+	s.Register(context.Background(),"page.html", []byte("v1"))
+	s.Register(context.Background(),"page.html", []byte("v2"))
 
-	got, err := s.Get("page.html")
+	got, err := s.Get(context.Background(),"page.html")
 	if err != nil {
 		t.Fatalf("Get() error: %v", err)
 	}
@@ -449,11 +451,11 @@ func TestE2E_List(t *testing.T) {
 	t.Parallel()
 	s := openTestDB(t)
 
-	s.Register("c.html", []byte("c"))
-	s.Register("a.html", []byte("a"))
-	s.Register("b.html", []byte("b"))
+	s.Register(context.Background(),"c.html", []byte("c"))
+	s.Register(context.Background(),"a.html", []byte("a"))
+	s.Register(context.Background(),"b.html", []byte("b"))
 
-	names, err := s.List()
+	names, err := s.List(context.Background())
 	if err != nil {
 		t.Fatalf("List() error: %v", err)
 	}
@@ -473,7 +475,7 @@ func TestE2E_ListEmpty(t *testing.T) {
 	t.Parallel()
 	s := openTestDB(t)
 
-	names, err := s.List()
+	names, err := s.List(context.Background())
 	if err != nil {
 		t.Fatalf("List() error: %v", err)
 	}
@@ -486,7 +488,7 @@ func TestE2E_Exists(t *testing.T) {
 	t.Parallel()
 	s := openTestDB(t)
 
-	s.Register("page.html", []byte("content"))
+	s.Register(context.Background(),"page.html", []byte("content"))
 
 	exists, err := s.Exists("page.html")
 	if err != nil {
@@ -514,13 +516,13 @@ func TestE2E_Delete(t *testing.T) {
 	t.Parallel()
 	s := openTestDB(t)
 
-	s.Register("page.html", []byte("content"))
+	s.Register(context.Background(),"page.html", []byte("content"))
 
 	if err := s.Delete("page.html"); err != nil {
 		t.Fatalf("Delete() error: %v", err)
 	}
 
-	_, err := s.Get("page.html")
+	_, err := s.Get(context.Background(),"page.html")
 	if !errors.Is(err, template.ErrTemplateNotFound) {
 		t.Errorf("Get() after Delete() error = %v, want %v", err, template.ErrTemplateNotFound)
 	}
@@ -560,23 +562,23 @@ func TestE2E_NamespaceIsolation(t *testing.T) {
 		t.Fatalf("Init(ns-b): %v", err)
 	}
 
-	nsA.Register("page.html", []byte("from A"))
-	nsB.Register("page.html", []byte("from B"))
+	nsA.Register(context.Background(),"page.html", []byte("from A"))
+	nsB.Register(context.Background(),"page.html", []byte("from B"))
 
-	gotA, err := nsA.Get("page.html")
+	gotA, err := nsA.Get(context.Background(),"page.html")
 	if err != nil {
-		t.Fatalf("nsA.Get() error: %v", err)
+		t.Fatalf("nsA.Get(context.Background(),) error: %v", err)
 	}
 	if string(gotA) != "from A" {
-		t.Errorf("nsA.Get() = %q, want %q", gotA, "from A")
+		t.Errorf("nsA.Get(context.Background(),) = %q, want %q", gotA, "from A")
 	}
 
-	gotB, err := nsB.Get("page.html")
+	gotB, err := nsB.Get(context.Background(),"page.html")
 	if err != nil {
-		t.Fatalf("nsB.Get() error: %v", err)
+		t.Fatalf("nsB.Get(context.Background(),) error: %v", err)
 	}
 	if string(gotB) != "from B" {
-		t.Errorf("nsB.Get() = %q, want %q", gotB, "from B")
+		t.Errorf("nsB.Get(context.Background(),) = %q, want %q", gotB, "from B")
 	}
 
 	// Deleting in ns-a should not affect ns-b.
@@ -584,17 +586,17 @@ func TestE2E_NamespaceIsolation(t *testing.T) {
 		t.Fatalf("nsA.Delete() error: %v", err)
 	}
 
-	_, err = nsA.Get("page.html")
+	_, err = nsA.Get(context.Background(),"page.html")
 	if !errors.Is(err, template.ErrTemplateNotFound) {
-		t.Errorf("nsA.Get() after delete: error = %v, want %v", err, template.ErrTemplateNotFound)
+		t.Errorf("nsA.Get(context.Background(),) after delete: error = %v, want %v", err, template.ErrTemplateNotFound)
 	}
 
-	gotB2, err := nsB.Get("page.html")
+	gotB2, err := nsB.Get(context.Background(),"page.html")
 	if err != nil {
-		t.Fatalf("nsB.Get() after nsA delete: error: %v", err)
+		t.Fatalf("nsB.Get(context.Background(),) after nsA delete: error: %v", err)
 	}
 	if string(gotB2) != "from B" {
-		t.Errorf("nsB.Get() after nsA delete = %q, want %q", gotB2, "from B")
+		t.Errorf("nsB.Get(context.Background(),) after nsA delete = %q, want %q", gotB2, "from B")
 	}
 }
 
@@ -609,11 +611,11 @@ func TestE2E_RegisterFS(t *testing.T) {
 		"readme.md":            {Data: []byte("# Readme")}, // should be skipped
 	}
 
-	if err := s.RegisterFS(fsys); err != nil {
+	if err := s.RegisterFS(context.Background(), fsys); err != nil {
 		t.Fatalf("RegisterFS() error: %v", err)
 	}
 
-	names, err := s.List()
+	names, err := s.List(context.Background())
 	if err != nil {
 		t.Fatalf("List() error: %v", err)
 	}
@@ -621,7 +623,7 @@ func TestE2E_RegisterFS(t *testing.T) {
 		t.Fatalf("List() returned %d names, want 3 (non-.html should be skipped); got %v", len(names), names)
 	}
 
-	got, err := s.Get("layouts/base.html")
+	got, err := s.Get(context.Background(),"layouts/base.html")
 	if err != nil {
 		t.Fatalf("Get() error: %v", err)
 	}

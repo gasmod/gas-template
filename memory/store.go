@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"context"
 	"fmt"
 	"io/fs"
 	"sort"
@@ -28,7 +29,7 @@ func NewStore() *Store {
 }
 
 // Get returns the raw template content by name.
-func (s *Store) Get(name string) ([]byte, error) {
+func (s *Store) Get(_ context.Context, name string) ([]byte, error) {
 	s.mu.RLock()
 	content, ok := s.templates[name]
 	s.mu.RUnlock()
@@ -39,7 +40,7 @@ func (s *Store) Get(name string) ([]byte, error) {
 }
 
 // List returns all available template names in sorted order.
-func (s *Store) List() ([]string, error) {
+func (s *Store) List(_ context.Context) ([]string, error) {
 	s.mu.RLock()
 	names := make([]string, 0, len(s.templates))
 	for name := range s.templates {
@@ -51,16 +52,17 @@ func (s *Store) List() ([]string, error) {
 }
 
 // Register adds or replaces a template by name and raw content.
-func (s *Store) Register(name string, content []byte) {
+func (s *Store) Register(_ context.Context, name string, content []byte) error {
 	s.mu.Lock()
 	s.templates[name] = content
 	s.mu.Unlock()
+	return nil
 }
 
 // RegisterFS walks an fs.FS and registers every .html file found.
 // Names are relative paths with forward slashes (e.g. "layouts/base.html").
-func (s *Store) RegisterFS(fsys fs.FS) error {
-	if err := util.RegisterFS(s, fsys, ".html"); err != nil {
+func (s *Store) RegisterFS(ctx context.Context, fsys fs.FS) error {
+	if err := util.RegisterFS(ctx, s, fsys, ".html"); err != nil {
 		return fmt.Errorf("template: register fs: %w", err)
 	}
 	return nil

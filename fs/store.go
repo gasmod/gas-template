@@ -1,131 +1,71 @@
-package fs //nolint:revive // package name matches its domain (filesystem templates)
+// Package fs provides a read-only template store backed by an fs.FS,
+// suitable for use with embed.FS or any other fs.FS implementation.
+// For mutable storage, wrap this in a composite.Store with a writable
+// provider such as memory.Store.
+package fs
 
 import (
+	"context"
 	"fmt"
-	"io"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"sort"
-	"sync"
 
 	"github.com/gasmod/gas"
 	template "github.com/gasmod/gas-template"
-	"github.com/gasmod/gas-template/internal/util"
 )
 
-// Store reads templates from a directory on disk. File operations are
-// sandboxed to the root directory via os.Root. An in-memory overlay
-// handles programmatic registrations via Register and RegisterFS.
+// Store reads templates from an fs.FS. Register and RegisterFS return
+// template.ErrReadOnly — use composite.Store for mutability.
 type Store struct {
-	err     error
-	overlay map[string][]byte
-	root    *os.Root
-	dir     string
-	ext     string
-	mu      sync.RWMutex
-	once    sync.Once
+	fsys fs.FS
+	ext  string
 }
 
 var _ gas.TemplateProvider = (*Store)(nil)
-var _ io.Closer = (*Store)(nil)
 
-// NewStore creates a filesystem-backed template store rooted at dir.
-// Only files with the ".html" extension are recognized from disk.
-func NewStore(dir string) *Store {
-	return &Store{
-		dir:     dir,
-		ext:     ".html",
-		overlay: make(map[string][]byte),
-	}
+// NewStore creates a read-only template store backed by fsys. Only files
+// with the ".html" extension are recognized.
+func NewStore(fsys fs.FS) *Store {
+	return &Store{fsys: fsys, ext: ".html"}
 }
 
-func (s *Store) init() error {
-	s.once.Do(func() {
-		s.root, s.err = os.OpenRoot(s.dir)
-	})
-	return s.err
-}
-
-// Get returns the raw template content by name. Checks the in-memory
-// overlay first, then falls back to disk.
-func (s *Store) Get(name string) ([]byte, error) {
-	s.mu.RLock()
-	if content, ok := s.overlay[name]; ok {
-		s.mu.RUnlock()
-		return content, nil
-	}
-	s.mu.RUnlock()
-
-	if err := s.init(); err != nil {
-		return nil, fmt.Errorf("template: opening root: %w", err)
-	}
-	data, err := fs.ReadFile(s.root.FS(), name)
+// Get returns the raw template content by name. Returns
+// template.ErrTemplateNotFound if the file is not present.
+func (s *Store) Get(_ context.Context, name string) ([]byte, error) {
+	data, err := fs.ReadFile(s.fsys, name)
 	if err != nil {
 		return nil, template.ErrTemplateNotFound
 	}
 	return data, nil
 }
 
-// List returns all available template names from both disk and the
-// overlay, sorted and deduplicated.
-func (s *Store) List() ([]string, error) {
-	if err := s.init(); err != nil {
-		return nil, fmt.Errorf("template: opening root: %w", err)
-	}
-
-	seen := make(map[string]struct{})
-
-	// Walk disk.
-	_ = fs.WalkDir(s.root.FS(), ".", func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return err
+// List returns all template names from the fs.FS in sorted order.
+func (s *Store) List(_ context.Context) ([]string, error) {
+	var names []string
+	err := fs.WalkDir(s.fsys, ".", func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
 		}
-		if filepath.Ext(path) != s.ext {
+		if d.IsDir() || filepath.Ext(path) != s.ext {
 			return nil
 		}
-		seen[filepath.ToSlash(path)] = struct{}{}
+		names = append(names, filepath.ToSlash(path))
 		return nil
 	})
-
-	// Merge overlay.
-	s.mu.RLock()
-	for name := range s.overlay {
-		seen[name] = struct{}{}
-	}
-	s.mu.RUnlock()
-
-	names := make([]string, 0, len(seen))
-	for name := range seen {
-		names = append(names, name)
+	if err != nil {
+		return nil, fmt.Errorf("walking fs: %w", err)
 	}
 	sort.Strings(names)
 	return names, nil
 }
 
-// Register adds or replaces a template in the in-memory overlay.
-func (s *Store) Register(name string, content []byte) {
-	s.mu.Lock()
-	s.overlay[name] = content
-	s.mu.Unlock()
+// Register always returns template.ErrReadOnly.
+func (s *Store) Register(_ context.Context, _ string, _ []byte) error {
+	return template.ErrReadOnly
 }
 
-// RegisterFS walks an fs.FS and registers every .html file found into
-// the in-memory overlay.
-func (s *Store) RegisterFS(fsys fs.FS) error {
-	if err := util.RegisterFS(s, fsys, ".html"); err != nil {
-		return fmt.Errorf("template: register fs: %w", err)
-	}
-	return nil
-}
-
-// Close releases the os.Root handle if it was opened.
-func (s *Store) Close() error {
-	if s.root != nil {
-		if err := s.root.Close(); err != nil {
-			return fmt.Errorf("template: closing root: %w", err)
-		}
-		s.root = nil
-	}
-	return nil
+// RegisterFS always returns template.ErrReadOnly.
+func (s *Store) RegisterFS(_ context.Context, _ fs.FS) error {
+	return template.ErrReadOnly
 }

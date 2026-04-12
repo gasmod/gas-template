@@ -3,12 +3,13 @@
 // per-method behavior via function fields.
 //
 //	mock := &templatetest.MockTemplate{}
-//	mock.GetFn = func(name string) ([]byte, error) {
+//	mock.GetFn = func(ctx context.Context, name string) ([]byte, error) {
 //	    return []byte("<h1>Hello</h1>"), nil
 //	}
 package templatetest
 
 import (
+	"context"
 	"io/fs"
 	"sync"
 
@@ -19,10 +20,10 @@ import (
 // delegates to its corresponding Fn field if set, otherwise returns the
 // zero value. All calls are recorded in the Calls slice for assertions.
 type MockTemplate struct {
-	GetFn        func(name string) ([]byte, error)
-	ListFn       func() ([]string, error)
-	RegisterFn   func(name string, content []byte)
-	RegisterFSFn func(fsys fs.FS) error
+	GetFn        func(ctx context.Context, name string) ([]byte, error)
+	ListFn       func(ctx context.Context) ([]string, error)
+	RegisterFn   func(ctx context.Context, name string, content []byte) error
+	RegisterFSFn func(ctx context.Context, fsys fs.FS) error
 	Calls        []Call
 
 	mu sync.Mutex
@@ -43,36 +44,37 @@ func (m *MockTemplate) record(method string, args ...any) {
 }
 
 // Get records the call and delegates to GetFn if set.
-func (m *MockTemplate) Get(name string) ([]byte, error) {
+func (m *MockTemplate) Get(ctx context.Context, name string) ([]byte, error) {
 	m.record("Get", name)
 	if m.GetFn != nil {
-		return m.GetFn(name)
+		return m.GetFn(ctx, name)
 	}
 	return nil, nil
 }
 
 // List records the call and delegates to ListFn if set.
-func (m *MockTemplate) List() ([]string, error) {
+func (m *MockTemplate) List(ctx context.Context) ([]string, error) {
 	m.record("List")
 	if m.ListFn != nil {
-		return m.ListFn()
+		return m.ListFn(ctx)
 	}
 	return nil, nil
 }
 
 // Register records the call and delegates to RegisterFn if set.
-func (m *MockTemplate) Register(name string, content []byte) {
+func (m *MockTemplate) Register(ctx context.Context, name string, content []byte) error {
 	m.record("Register", name, content)
 	if m.RegisterFn != nil {
-		m.RegisterFn(name, content)
+		return m.RegisterFn(ctx, name, content)
 	}
+	return nil
 }
 
 // RegisterFS records the call and delegates to RegisterFSFn if set.
-func (m *MockTemplate) RegisterFS(fsys fs.FS) error {
+func (m *MockTemplate) RegisterFS(ctx context.Context, fsys fs.FS) error {
 	m.record("RegisterFS", fsys)
 	if m.RegisterFSFn != nil {
-		return m.RegisterFSFn(fsys)
+		return m.RegisterFSFn(ctx, fsys)
 	}
 	return nil
 }
