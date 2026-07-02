@@ -1,5 +1,7 @@
 # gas-template
 
+[![Test](https://github.com/gasmod/gas-template/actions/workflows/test.yml/badge.svg)](https://github.com/gasmod/gas-template/actions/workflows/test.yml) [![Go Reference](https://pkg.go.dev/badge/github.com/gasmod/gas-template.svg)](https://pkg.go.dev/github.com/gasmod/gas-template) ![Go Version](https://img.shields.io/github/go-mod/go-version/gasmod/gas-template) [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 Template storage service for the [Gas](https://github.com/gasmod/gas) ecosystem. Provides multiple `gas.TemplateProvider`
 implementations — in-memory, filesystem, database, and composite — for storing and retrieving raw template content.
 
